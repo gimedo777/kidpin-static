@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kidpin – Entdecken</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html,body{font-family:Inter,ui-sans-serif,system-ui}
+    .card{border:1px solid #e5e7eb;border-radius:1rem;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+    .btn{display:inline-flex;align-items:center;gap:.5rem;padding:.75rem 1rem;border-radius:.75rem;border:1px solid #e5e7eb;background:#111827;color:#fff}
+    .tag{font-size:.75rem;padding:.25rem .5rem;border-radius:999px;background:#f3f4f6}
+    .grid-autofill{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem}
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+  <header class="sticky top-0 bg-white/80 backdrop-blur border-b border-gray-200">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <a href="/" class="font-bold text-lg">Kidpin</a>
+      <a href="/" class="text-sm text-gray-600 hover:text-gray-900">Start</a>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold mb-3">Entdecken</h1>
+    <p class="text-gray-600 mb-6">Demo: Ergebnisliste & Filter (ohne Karte).</p>
+
+    <div class="card p-4 mb-6 grid md:grid-cols-4 gap-3 items-end">
+      <div>
+        <label class="text-sm text-gray-600">Kategorie</label>
+        <select id="filter-category" class="w-full border rounded-lg p-2">
+          <option value="">Alle</option>
+          <option value="playground">Spielplätze</option>
+          <option value="zoo">Zoo & Tierpark</option>
+          <option value="museum">Museum</option>
+          <option value="trampoline">Trampolinhalle</option>
+          <option value="cafe">Familien-Café</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-sm text-gray-600">Textsuche</label>
+        <input id="filter-text" class="w-full border rounded-lg p-2" placeholder="Name oder Stadt" />
+      </div>
+      <div class="flex items-center gap-2">
+        <input id="filter-open" type="checkbox" class="w-4 h-4" />
+        <label for="filter-open" class="text-sm">Jetzt offen</label>
+      </div>
+      <button id="btn-reset" class="btn">Filter zurücksetzen</button>
+    </div>
+
+    <div id="results" class="grid-autofill"></div>
+  </main>
+
+  <script>
+    const places = [
+      { id:1, name:"Stadtpark Spielplatz", city:"München", category:"playground", price:"€", open:{from:8,to:20} },
+      { id:2, name:"Tierpark Hellabrunn", city:"München", category:"zoo", price:"€€", open:{from:9,to:18} },
+      { id:3, name:"Deutsches Museum", city:"München", category:"museum", price:"€€", open:{from:10,to:17} },
+      { id:4, name:"Sprungwerk Trampolinhalle", city:"Köln", category:"trampoline", price:"€€", open:{from:11,to:21} },
+      { id:5, name:"Familiencafé Sonnenschein", city:"Berlin", category:"cafe", price:"€", open:{from:9,to:19} },
+      { id:6, name:"Abenteuerspielplatz West", city:"Berlin", category:"playground", price:"frei", open:{from:7,to:22} }
+    ];
+    const results = document.getElementById('results');
+    const qCat  = document.getElementById('filter-category');
+    const qText = document.getElementById('filter-text');
+    const qOpen = document.getElementById('filter-open');
+    const btnReset = document.getElementById('btn-reset');
+
+    const el = (h)=>{const d=document.createElement('div');d.innerHTML=h.trim();return d.firstChild;}
+    const nowHour=()=>new Date().getHours();
+
+    function render(){
+      const h = nowHour();
+      const cat = qCat.value;
+      const txt = qText.value.toLowerCase();
+      const openNow = qOpen.checked;
+      results.innerHTML='';
+      places
+        .filter(p=>!cat||p.category===cat)
+        .filter(p=>!txt||(p.name.toLowerCase().includes(txt)||p.city.toLowerCase().includes(txt)))
+        .filter(p=>!openNow||(h>=p.open.from&&h<p.open.to))
+        .forEach(p=>{
+          results.appendChild(el(`
+            <div class="card p-4 hover:shadow-md transition">
+              <div class="text-sm text-gray-500">${p.city}</div>
+              <div class="font-semibold text-lg">${p.name}</div>
+              <div class="text-sm mt-1 flex gap-2">
+                <span class="tag">${p.category}</span>
+                <span class="tag">${p.price}</span>
+                ${openNow?'<span class="tag">Jetzt offen</span>':''}
+              </div>
+            </div>
+          `));
+        });
+      if(!results.children.length){
+        results.appendChild(el(`<div class="text-gray-500">Keine Treffer – Filter anpassen.</div>`));
+      }
+    }
+    qCat.addEventListener('change', render);
+    qText.addEventListener('input', render);
+    qOpen.addEventListener('change', render);
+    btnReset.addEventListener('click', ()=>{ qCat.value=''; qText.value=''; qOpen.checked=false; render(); });
+    render();
+
+    const params = new URLSearchParams(location.search);
+    if(params.get('category')){ qCat.value=params.get('category'); render(); }
+  </script>
+</body>
+</html>
