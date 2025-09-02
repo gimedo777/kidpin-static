@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Kidpin – Entdecken (mit Karte)</title>
+
+  <!-- UI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    html,body{font-family:Inter,ui-sans-serif,system-ui}
+    .card{border:1px solid #e5e7eb;border-radius:1rem;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+    #map{height:70vh;border:1px solid #e5e7eb;border-radius:1rem}
+    .tag{font-size:.75rem;padding:.25rem .5rem;border-radius:999px;background:#f3f4f6}
+  </style>
+
+  <!-- MapLibre -->
+  <link href="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.css" rel="stylesheet"/>
+  <script src="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.js"></script>
+</head>
+<body class="bg-gray-50">
+  <main class="max-w-6xl mx-auto px-4 py-6">
+    <h1 class="text-3xl font-bold mb-3">Entdecken</h1>
+
+    <!-- Filter -->
+    <div class="card p-4 mb-4 grid md:grid-cols-4 gap-3 items-end">
+      <div>
+        <label class="text-sm text-gray-600">Kategorie</label>
+        <select id="filter-category" class="w-full border rounded-lg p-2">
+          <option value="">Alle</option>
+          <option value="playground">Spielplätze</option>
+          <option value="zoo">Zoo & Tierpark</option>
+          <option value="museum">Museum</option>
+          <option value="trampoline">Trampolinhalle</option>
+          <option value="cafe">Familien-Café</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-sm text-gray-600">Textsuche</label>
+        <input id="filter-text" class="w-full border rounded-lg p-2" placeholder="Name oder Stadt"/>
+      </div>
+      <div class="flex items-center gap-2">
+        <input id="filter-open" type="checkbox" class="w-4 h-4"/>
+        <label for="filter-open" class="text-sm">Jetzt offen</label>
+      </div>
+      <button id="btn-reset" class="border rounded-lg p-2">Filter zurücksetzen</button>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-4">
+      <div class="md:col-span-2"><div id="map"></div></div>
+      <div class="card p-3">
+        <div class="font-semibold mb-2">Ergebnisse</div>
+        <div id="list" class="space-y-2 text-sm"></div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+  const MAPTILER_KEY = "iQ0paEnvosqdtR9cdlNS"; // dein Kidpin-Key
+
+  const raw = [
+    {id:1,name:"Stadtpark Spielplatz",city:"München",cat:"playground",price:"€",open:{from:8,to:20},lon:11.5755,lat:48.1374},
+    {id:2,name:"Tierpark Hellabrunn",city:"München",cat:"zoo",price:"€€",open:{from:9,to:18},lon:11.553,lat:48.093},
+    {id:3,name:"Deutsches Museum",city:"München",cat:"museum",price:"€€",open:{from:10,to:17},lon:11.582,lat:48.130},
+    {id:4,name:"Sprungwerk",city:"Köln",cat:"trampoline",price:"€€",open:{from:11,to:21},lon:6.957,lat:50.937},
+    {id:5,name:"Familiencafé Sonne",city:"Berlin",cat:"cafe",price:"€",open:{from:9,to:19},lon:13.405,lat:52.520},
+    {id:6,name:"Abenteuer West",city:"Berlin",cat:"playground",price:"frei",open:{from:7,to:22},lon:13.37,lat:52.52},
+    {id:7,name:"Zoo Berlin",city:"Berlin",cat:"zoo",price:"€€",open:{from:9,to:18},lon:13.339,lat:52.507},
+    {id:8,name:"Technisches Museum",city:"Wien",cat:"museum",price:"€€",open:{from:10,to:18},lon:16.337,lat:48.198},
+    {id:9,name:"Tierpark Schönbrunn",city:"Wien",cat:"zoo",price:"€€",open:{from:9,to:18},lon:16.304,lat:48.184},
+    {id:10,name:"Spielplatz Uetliberg",city:"Zürich",cat:"playground",price:"frei",open:{from:8,to:20},lon:8.491,lat:47.349}
+  ];
+
+  const qCat  = document.getElementById('filter-category');
+  const qText = document.getElementById('filter-text');
+  const qOpen = document.getElementById('filter-open');
+  const btnReset = document.getElementById('btn-reset');
+  const listEl = document.getElementById('list');
+
+  const nowH = () => new Date().getHours();
+  const toGeo = (arr)=>({type:"FeatureCollection",features:arr.map(p=>({type:"Feature",geometry:{type:"Point",coordinates:[p.lon,p.lat]},properties:p}))});
+
+  function filtered(){
+    const h = nowH();
+    const txt = (qText.value||"").toLowerCase();
+    return raw
+      .filter(p => !qCat.value || p.cat === qCat.value)
+      .filter(p => !txt || p.name.toLowerCase().includes(txt) || p.city.toLowerCase().includes(txt))
+      .filter(p => !qOpen.checked || (h>=p.open.from && h<p.open.to));
+  }
+
+  function renderList(data){
+    listEl.innerHTML = "";
+    if(!data.length){ listEl.innerHTML = "<div class='text-gray-500'>Keine Treffer – Filter anpassen.</div>"; return; }
+    data.forEach(p=>{
+      const d = document.createElement('div');
+      d.className = "card p-3";
+      d.innerHTML = `<div class="text-gray-500">${p.city}</div><div class="font-semibold">${p.name}</div>
+                     <div class="mt-1 flex gap-2 text-xs"><span class="tag">${p.cat}</span><span class="tag">${p.price}</span></div>`;
+      d.addEventListener('mouseenter', ()=> map.easeTo({center:[p.lon,p.lat], zoom:12}));
+      listEl.appendChild(d);
+    });
+  }
+
+  let map, src;
+  function initMap(){
+    map = new maplibregl.Map({
+      container: 'map',
+      style: `https://api.maptiler.com/maps/streets/style.json?key=${MAPTILER_KEY}`,
+      center: [10.5, 51.2],
+      zoom: 5
+    });
+    map.addControl(new maplibregl.NavigationControl(), 'top-right');
+    map.on('load', () => {
+      src = map.addSource('places', {
+        type:'geojson',
+        data: toGeo(filtered()),
+        cluster: true,
+        clusterMaxZoom: 14,
+        clusterRadius: 50
+      });
+
+      map.addLayer({
+        id:'clusters', type:'circle', source:'places', filter:['has','point_count'],
+        paint:{'circle-color':['step',['get','point_count'],'#93c5fd',10,'#60a5fa',50,'#3b82f6'],
+               'circle-radius':['step',['get','point_count'],14,10,18,50,24]}
+      });
+      map.addLayer({
+        id:'cluster-count', type:'symbol', source:'places', filter:['has','point_count'],
+        layout:{'text-field':['get','point_count_abbreviated'],'text-size':12}
+      });
+      map.addLayer({
+        id:'unclustered', type:'circle', source:'places', filter:['!',['has','point_count']],
+        paint:{'circle-color':'#2563eb','circle-radius':6,'circle-stroke-width':1,'circle-stroke-color':'#fff'}
+      });
+
+      map.on('click','clusters', e=>{
+        const f = map.queryRenderedFeatures(e.point,{layers:['clusters']})[0];
+        src.getClusterExpansionZoom(f.properties.cluster_id,(err,z)=>{ if(err) return; map.easeTo({center:f.geometry.coordinates, zoom:z}); });
+      });
+      map.on('click','unclustered', e=>{
+        const p = e.features[0].properties;
+        new maplibregl.Popup().setLngLat(e.lngLat).setHTML(`<strong>${p.name}</strong><br><span style="opacity:.7">${p.city}</span>`).addTo(map);
+      });
+
+      refresh();
+    });
+  }
+
+  function refresh(){
+    const data = filtered();
+    renderList(data);
+    const s = map.getSource('places');
+    if(s) s.setData(toGeo(data));
+  }
+
+  qCat.addEventListener('change', refresh);
+  qText.addEventListener('input', refresh);
+  qOpen.addEventListener('change', refresh);
+  btnReset.addEventListener('click', ()=>{ qCat.value=''; qText.value=''; qOpen.checked=false; refresh(); });
+
+  initMap();
+  </script>
+</body>
+</html>
