@@ -1,0 +1,22 @@
+name: Build places.json
+on:
+  workflow_dispatch: {}
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node -v
+      - run: node scripts/build-places.mjs
+      - name: Commit places.json
+        run: |
+          git config user.name "kidpin-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add public/data/places.json
+          git commit -m "build places.json (OSM Berlin)" || echo "no changes"
+          git push
